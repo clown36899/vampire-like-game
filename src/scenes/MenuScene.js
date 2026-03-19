@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { Store } from '../Store.js'
 
 export default class MenuScene extends Phaser.Scene {
   constructor() {
@@ -42,8 +43,13 @@ export default class MenuScene extends Phaser.Scene {
       color: '#666666'
     }).setOrigin(0.5)
 
+    // 코인 표시
+    this.add.text(width - 16, 16, `🪙 ${Store.getCoins()}`, {
+      fontSize: '18px', color: '#ffd700', fontStyle: 'bold'
+    }).setOrigin(1, 0)
+
     // Start button
-    const btn = this.add.text(width / 2, height / 2 + 80, '[ 게임 시작 ]', {
+    const btn = this.add.text(width / 2, height / 2 + 70, '[ 게임 시작 ]', {
       fontSize: '32px',
       color: '#ffff00',
       fontStyle: 'bold'
@@ -60,6 +66,22 @@ export default class MenuScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1
     })
+
+    // 상점 버튼
+    const shopBtn = this.add.text(width / 2, height / 2 + 120, '🛒  상점', {
+      fontSize: '20px', color: '#aaaaff'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+    shopBtn.on('pointerover', () => shopBtn.setStyle({ color: '#ffffff' }))
+    shopBtn.on('pointerout',  () => shopBtn.setStyle({ color: '#aaaaff' }))
+    shopBtn.on('pointerdown', () => this.scene.start('Shop'))
+
+    // 가이드 버튼
+    const guideBtn = this.add.text(width / 2, height / 2 + 155, '📖  조합 가이드', {
+      fontSize: '17px', color: '#88cc88'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+    guideBtn.on('pointerover', () => guideBtn.setStyle({ color: '#ffffff' }))
+    guideBtn.on('pointerout',  () => guideBtn.setStyle({ color: '#88cc88' }))
+    guideBtn.on('pointerdown', () => this.scene.start('Guide'))
 
     // Controls
     this.add.text(width / 2, height - 50, 'WASD / 방향키로 이동  |  10분 생존 목표', {

@@ -5,7 +5,20 @@ const WEAPON_INFO = {
   orb:     { name: '마법 구슬',       emoji: '🔮', desc: '플레이어 주위를\n회전하며 충돌 타격',   color: 0xaa44ff },
   garlic:  { name: '마늘 오라',       emoji: '🧄', desc: '주변 범위에\n지속 데미지 필드',         color: 0x88ff44 },
   missile: { name: '마크로스 미사일', emoji: '🚀', desc: '전방향 난수 발사 후\n적에게 자동 유도', color: 0xff6600 },
-  hp:      { name: '체력 회복',       emoji: '❤️', desc: 'HP 40 즉시 회복',                       color: 0xff4444 }
+  magnet:  { name: '아이템 자석',     emoji: '🧲', desc: '젬 흡수 범위와\n속도가 크게 증가',      color: 0x00ccff },
+  hp:      { name: '체력 회복',       emoji: '❤️', desc: 'HP 40 즉시 회복',                       color: 0xff4444 },
+
+  // ── 진화 카드 ──
+  ev_thunder_storm: {
+    name: '번개폭풍 진화!', emoji: '⛈️',
+    desc: '볼트 Lv5 + 마늘 Lv3\n구름에서 번개를 내리치는\n광역 폭풍 무기로 진화!',
+    color: 0xffcc00, evolved: true
+  },
+  ev_plasma_cannon: {
+    name: '플라즈마포 진화!', emoji: '🌀',
+    desc: '구슬 Lv5 + 미사일 Lv3\n구슬 위치에서 플라즈마\n미사일을 자동 발사!',
+    color: 0xff44ff, evolved: true
+  },
 }
 
 export default class LevelUpScene extends Phaser.Scene {
@@ -14,8 +27,8 @@ export default class LevelUpScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.gameScene = data.gameScene
-    this.weapons   = data.weapons
+    this.gameScene    = data.gameScene
+    this.forceOptions = data.forceOptions || null
   }
 
   create() {
@@ -65,36 +78,61 @@ export default class LevelUpScene extends Phaser.Scene {
   }
 
   buildOptions() {
-    const pool      = ['bolt', 'orb', 'garlic', 'missile', 'hp']
-    const available = pool.filter(k => k === 'hp' || (this.weapons[k] && this.weapons[k].level < 5))
+    // 외부에서 강제 지정된 옵션 (진화 전용 팝업)
+    if (this.forceOptions) return this.forceOptions.slice(0, 3)
+
+    const weapons = this.gameScene.weapons
+    const evolved = this.gameScene.evolved
+
+    // 진화 가능 조건 확인 → 진화 카드 우선 배치
+    const evCards = []
+    if (!evolved.thunder_storm && weapons.bolt?.level >= 5 && weapons.garlic?.level >= 3)
+      evCards.push('ev_thunder_storm')
+    if (!evolved.plasma_cannon && weapons.orb?.level >= 5 && weapons.missile?.level >= 3)
+      evCards.push('ev_plasma_cannon')
+
+    const pool      = ['bolt', 'orb', 'garlic', 'missile', 'magnet', 'hp']
+    const available = pool.filter(k => k === 'hp' || (weapons[k] && weapons[k].level < 5))
     Phaser.Utils.Array.Shuffle(available)
-    return available.slice(0, 3)
+
+    return [...evCards, ...available].slice(0, 3)
   }
 
   createCard(x, y, key, index, s = 1) {
-    const info  = WEAPON_INFO[key]
-    const curLv = this.weapons[key]?.level ?? 0
+    const info    = WEAPON_INFO[key]
+    const curLv   = this.gameScene.weapons[key]?.level ?? 0
+    const isEvolved = !!info.evolved
     const cw = 220 * s, ch = 280 * s
 
-    const bg = this.add.rectangle(x, y, cw, ch, 0x0e0e2e)
-    bg.setStrokeStyle(2, info.color)
+    const bgColor = isEvolved ? 0x1a1200 : 0x0e0e2e
+    const bg = this.add.rectangle(x, y, cw, ch, bgColor)
+    bg.setStrokeStyle(isEvolved ? 3 * s : 2, info.color)
     bg.setInteractive({ useHandCursor: true })
+
+    // 진화 카드 상단 빛나는 배지
+    if (isEvolved) {
+      const badge = this.add.text(x, y - 128 * s, '✨ EVOLUTION ✨', {
+        fontSize: `${11 * s}px`, color: '#ffcc00', fontStyle: 'bold',
+        backgroundColor: '#331100', padding: { x: 8 * s, y: 3 * s }
+      }).setOrigin(0.5)
+      this.tweens.add({ targets: badge, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 })
+    }
 
     this.add.text(x, y - 100 * s, info.emoji, { fontSize: `${44 * s}px` }).setOrigin(0.5)
 
     this.add.text(x, y - 48 * s, info.name, {
-      fontSize: `${19 * s}px`, color: '#ffffff', fontStyle: 'bold'
+      fontSize: `${17 * s}px`, color: isEvolved ? '#ffcc00' : '#ffffff', fontStyle: 'bold'
     }).setOrigin(0.5)
 
-    if (key !== 'hp') {
+    if (!isEvolved && key !== 'hp') {
       const lvColor = curLv === 0 ? '#88ff88' : '#aaaaff'
       this.add.text(x, y - 22 * s, curLv === 0 ? '신규 획득!' : `Lv ${curLv}  →  ${curLv + 1}`, {
         fontSize: `${13 * s}px`, color: lvColor
       }).setOrigin(0.5)
     }
 
-    this.add.text(x, y + 22 * s, info.desc, {
-      fontSize: `${13 * s}px`, color: '#dddddd',
+    this.add.text(x, y + (isEvolved ? 10 : 22) * s, info.desc, {
+      fontSize: `${12 * s}px`, color: isEvolved ? '#ffeeaa' : '#dddddd',
       align: 'center', wordWrap: { width: 180 * s }
     }).setOrigin(0.5)
 
@@ -103,11 +141,11 @@ export default class LevelUpScene extends Phaser.Scene {
     }).setOrigin(0.5)
 
     bg.on('pointerover', () => {
-      bg.setFillStyle(0x1e1e4e)
+      bg.setFillStyle(isEvolved ? 0x2a2000 : 0x1e1e4e)
       this.tweens.add({ targets: bg, scaleX: 1.05, scaleY: 1.05, duration: 80 })
     })
     bg.on('pointerout', () => {
-      bg.setFillStyle(0x0e0e2e)
+      bg.setFillStyle(bgColor)
       this.tweens.add({ targets: bg, scaleX: 1, scaleY: 1, duration: 80 })
     })
     bg.on('pointerdown', () => this.choose(key))

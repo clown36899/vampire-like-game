@@ -4,6 +4,9 @@ import MenuScene from './scenes/MenuScene.js'
 import GameScene from './scenes/GameScene.js'
 import LevelUpScene from './scenes/LevelUpScene.js'
 import GameOverScene from './scenes/GameOverScene.js'
+import ShopScene from './scenes/ShopScene.js'
+import InGameShopScene from './scenes/InGameShopScene.js'
+import GuideScene from './scenes/GuideScene.js'
 
 // Retina/HiDPI 대응: 물리 픽셀 해상도로 렌더링
 const dpr = window.devicePixelRatio || 1
@@ -25,7 +28,7 @@ const config = {
     default: 'arcade',
     arcade: { debug: false }
   },
-  scene: [BootScene, MenuScene, GameScene, LevelUpScene, GameOverScene]
+  scene: [BootScene, MenuScene, ShopScene, GameScene, GuideScene, LevelUpScene, InGameShopScene, GameOverScene]
 }
 
 export default new Phaser.Game(config)
