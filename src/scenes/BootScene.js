@@ -5,6 +5,14 @@ export default class BootScene extends Phaser.Scene {
     super('Boot')
   }
 
+  preload() {
+    this.load.image('enemy_normal', 'assets/enemy_normal.png')
+    this.load.image('enemy_fast',   'assets/enemy_fast.png')
+    this.load.image('enemy_tank',   'assets/enemy_tank.png')
+    this.load.image('enemy_boss',   'assets/enemy_boss.png')
+    this.load.image('gem',          'assets/gem.png')
+  }
+
   create() {
     this.createTextures()
     this.scene.start('Menu')
@@ -107,50 +115,7 @@ export default class BootScene extends Phaser.Scene {
     sg.generateTexture('skin_shadow', 36, 36)
     sg.destroy()
 
-    // ── Enemy normal (빨강 사각형) ──
-    const eg = this.make.graphics({ add: false })
-    eg.fillStyle(0xff3333)
-    eg.fillRoundedRect(2, 2, 22, 22, 4)
-    eg.fillStyle(0xffff00)
-    eg.fillCircle(8, 8, 3)
-    eg.fillCircle(18, 8, 3)
-    eg.lineStyle(2, 0xff0000)
-    eg.strokeRoundedRect(2, 2, 22, 22, 4)
-    eg.generateTexture('enemy_normal', 26, 26)
-    eg.destroy()
-
-    // ── Enemy fast (주황 삼각형) ──
-    const efg = this.make.graphics({ add: false })
-    efg.fillStyle(0xff8800)
-    efg.fillTriangle(13, 1, 1, 25, 25, 25)
-    efg.fillStyle(0xffff00)
-    efg.fillCircle(13, 19, 2)
-    efg.generateTexture('enemy_fast', 26, 26)
-    efg.destroy()
-
-    // ── Enemy tank (진홍 큰 사각형) ──
-    const etg = this.make.graphics({ add: false })
-    etg.fillStyle(0x880000)
-    etg.fillRoundedRect(2, 2, 42, 42, 6)
-    etg.fillStyle(0xff4444)
-    etg.fillRoundedRect(6, 6, 34, 34, 4)
-    etg.fillStyle(0xffff00)
-    etg.fillCircle(14, 14, 5)
-    etg.fillCircle(32, 14, 5)
-    etg.fillStyle(0xff0000)
-    etg.fillRect(14, 28, 18, 4)
-    etg.generateTexture('enemy_tank', 46, 46)
-    etg.destroy()
-
-    // ── XP Gem (밝은 초록 다이아) ──
-    const gemg = this.make.graphics({ add: false })
-    gemg.fillStyle(0x00ffaa)
-    gemg.fillTriangle(9, 0, 0, 9, 18, 9)
-    gemg.fillTriangle(9, 18, 0, 9, 18, 9)
-    gemg.fillStyle(0xaaffdd)
-    gemg.fillTriangle(9, 3, 4, 9, 14, 9)
-    gemg.generateTexture('gem', 18, 18)
-    gemg.destroy()
+    // enemy_normal, enemy_fast, enemy_tank, gem, enemy_boss → preload()에서 이미지 로드
 
     // ── 투사체 (밝은 노란 볼트) ──
     const kg = this.make.graphics({ add: false })
@@ -196,36 +161,7 @@ export default class BootScene extends Phaser.Scene {
     missileg.generateTexture('missile', 34, 12)
     missileg.destroy()
 
-    // ── Boss enemy (큰 보스 몬스터) ──
-    const bg2 = this.make.graphics({ add: false })
-    // 몸체
-    bg2.fillStyle(0x660000)
-    bg2.fillRoundedRect(4, 14, 72, 58, 8)
-    // 머리
-    bg2.fillStyle(0x880000)
-    bg2.fillCircle(40, 22, 22)
-    // 뿔
-    bg2.fillStyle(0x440000)
-    bg2.fillTriangle(26, 8, 22, -4, 32, 8)
-    bg2.fillTriangle(54, 8, 58, -4, 48, 8)
-    // 눈 (빛나는 빨간 눈)
-    bg2.fillStyle(0xff0000)
-    bg2.fillCircle(30, 20, 8)
-    bg2.fillCircle(50, 20, 8)
-    bg2.fillStyle(0xff6666)
-    bg2.fillCircle(30, 18, 4)
-    bg2.fillCircle(50, 18, 4)
-    // 입
-    bg2.fillStyle(0xffcc00)
-    bg2.fillRect(28, 32, 24, 4)
-    // 발톱
-    bg2.fillStyle(0x550000)
-    bg2.fillTriangle(8, 72, 14, 60, 20, 72)
-    bg2.fillTriangle(24, 72, 30, 62, 36, 72)
-    bg2.fillTriangle(44, 72, 50, 62, 56, 72)
-    bg2.fillTriangle(60, 72, 66, 60, 72, 72)
-    bg2.generateTexture('enemy_boss', 80, 80)
-    bg2.destroy()
+    // enemy_boss → preload()에서 이미지 로드
 
     // ── Truck (트럭) ──
     const trg = this.make.graphics({ add: false })
