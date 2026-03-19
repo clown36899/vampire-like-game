@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { Store } from '../Store.js'
+import { Store, CHARACTERS, SKINS } from '../Store.js'
 
 // 인게임 구매 가능 아이템
 const SHOP_ITEMS = [
@@ -8,9 +8,11 @@ const SHOP_ITEMS = [
   { id: 'orb',        name: '마법 구슬',   emoji: '🔮', desc: '구슬 구매 / 강화',       price: 160, color: 0xaa44ff, type: 'weapon' },
   { id: 'garlic',     name: '마늘 오라',   emoji: '🧄', desc: '마늘 구매 / 강화',       price: 140, color: 0x88ff44, type: 'weapon' },
   { id: 'missile',    name: '미사일',      emoji: '🚀', desc: '미사일 구매 / 강화',     price: 200, color: 0xff6600, type: 'weapon' },
-  { id: 'magnet',     name: '아이템 자석', emoji: '🧲', desc: '자석 구매 / 강화',       price: 120, color: 0x00ccff, type: 'weapon' },
-  { id: 'max_hp_up',  name: 'HP 강화',    emoji: '💗', desc: '최대 HP +30 + 즉시 회복', price: 200, color: 0xff88aa, type: 'consumable' },
-  { id: 'speed_up',   name: '스피드 업',   emoji: '💨', desc: '이동속도 +15% (최대 380)', price: 180, color: 0x00ffff, type: 'consumable' },
+  { id: 'magnet',     name: '아이템 자석', emoji: '🧲', desc: '자석 구매 / 강화',          price: 120, color: 0x00ccff, type: 'weapon' },
+  { id: 'dagger',     name: '단검',       emoji: '🗡️', desc: '단검 구매 / 강화',           price: 130, color: 0xccddff, type: 'weapon' },
+  { id: 'ice_lance',  name: '빙창',       emoji: '🧊', desc: '빙창 구매 / 강화',           price: 150, color: 0x44aaff, type: 'weapon' },
+  { id: 'max_hp_up',  name: 'HP 강화',    emoji: '💗', desc: '최대 HP +30 + 즉시 회복',    price: 200, color: 0xff88aa, type: 'consumable' },
+  { id: 'speed_up',   name: '스피드 업',   emoji: '💨', desc: '이동속도 +15% (최대 380)',  price: 180, color: 0x00ffff, type: 'consumable' },
 ]
 
 export default class InGameShopScene extends Phaser.Scene {
@@ -49,8 +51,41 @@ export default class InGameShopScene extends Phaser.Scene {
     this.itemContainer = this.add.container(0, 0)
     this.buildItems(s, W, H)
 
+    // ── [DEV] 스킨 즉시 변경 버튼 (컨테이너로 동적 재빌드) ──
+    this.add.text(W / 2, H - 126 * s, '[DEV] 스킨:', {
+      fontSize: `${10 * s}px`, color: '#555555'
+    }).setOrigin(0.5, 1)
+    this._devSkinContainer = this.add.container(0, 0)
+    this._devS = s
+    this._devW = W
+    this._devH = H
+    this.buildDevSkinBtns()
+
+    // ── [DEV] 캐릭터 즉시 변경 버튼 ──
+    this.add.text(W / 2, H - 90 * s, '[DEV] 캐릭터:', {
+      fontSize: `${10 * s}px`, color: '#555555'
+    }).setOrigin(0.5, 1)
+
+    const cBtnW = 80 * s
+    const cBtnGap = 6 * s
+    const cTotalW = CHARACTERS.length * cBtnW + (CHARACTERS.length - 1) * cBtnGap
+    const cStartX = W / 2 - cTotalW / 2
+    CHARACTERS.forEach((char, i) => {
+      const btn = this.add.text(cStartX + i * (cBtnW + cBtnGap), H - 72 * s,
+        `${char.emoji} ${char.name}`, {
+          fontSize: `${11 * s}px`, color: '#ffcc88',
+          backgroundColor: '#221100', padding: { x: 5 * s, y: 3 * s }
+        }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true })
+      btn.on('pointerover', () => btn.setStyle({ color: '#ffffff' }))
+      btn.on('pointerout',  () => btn.setStyle({ color: '#ffcc88' }))
+      btn.on('pointerdown', () => {
+        this.gameScene.devChangeChar(char.id)
+        this.buildDevSkinBtns()
+      })
+    })
+
     // ── [DEV] 날씨 즉시 변경 버튼 ──
-    this.add.text(W / 2, H - 72 * s, '[DEV] 날씨 즉시 변경:', {
+    this.add.text(W / 2, H - 54 * s, '[DEV] 날씨 즉시 변경:', {
       fontSize: `${10 * s}px`, color: '#555555'
     }).setOrigin(0.5, 1)
 
@@ -65,7 +100,7 @@ export default class InGameShopScene extends Phaser.Scene {
     const wTotalW = weatherTypes.length * wBtnW + (weatherTypes.length - 1) * wBtnGap
     const wStartX = W / 2 - wTotalW / 2
     weatherTypes.forEach((wt, i) => {
-      const btn = this.add.text(wStartX + i * (wBtnW + wBtnGap), H - 52 * s, wt.label, {
+      const btn = this.add.text(wStartX + i * (wBtnW + wBtnGap), H - 36 * s, wt.label, {
         fontSize: `${11 * s}px`, color: '#88ddff',
         backgroundColor: '#001122', padding: { x: 5 * s, y: 3 * s }
       }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true })
@@ -101,11 +136,11 @@ export default class InGameShopScene extends Phaser.Scene {
   buildItems(s, W, H) {
     this.itemContainer.removeAll(true)
 
-    const cols   = 4
+    const cols   = 5
     const rows   = 2
-    const cw     = 190 * s
+    const cw     = 158 * s
     const ch     = 110 * s
-    const gapX   = 18 * s
+    const gapX   = 12 * s
     const gapY   = 16 * s
     const totalW = cols * cw + (cols - 1) * gapX
     const startX = (W - totalW) / 2 + cw / 2
@@ -166,6 +201,29 @@ export default class InGameShopScene extends Phaser.Scene {
     })
   }
 
+  buildDevSkinBtns() {
+    this._devSkinContainer.removeAll(true)
+    const s = this._devS, W = this._devW, H = this._devH
+    const curCharId = this.gameScene.charId || 'default'
+    const devSkins = SKINS
+      .filter(sk => sk.charId === curCharId)
+      .map(sk => ({ tex: sk.tex, label: `${sk.emoji}${sk.name}` }))
+    const sBtnW = 72 * s
+    const sBtnGap = 5 * s
+    const sTotalW = devSkins.length * sBtnW + (devSkins.length - 1) * sBtnGap
+    const sStartX = W / 2 - sTotalW / 2
+    devSkins.forEach((sk, i) => {
+      const btn = this.add.text(sStartX + i * (sBtnW + sBtnGap), H - 108 * s, sk.label, {
+        fontSize: `${10 * s}px`, color: '#ffaaff',
+        backgroundColor: '#1a0022', padding: { x: 4 * s, y: 3 * s }
+      }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true })
+      btn.on('pointerover', () => btn.setStyle({ color: '#ffffff' }))
+      btn.on('pointerout',  () => btn.setStyle({ color: '#ffaaff' }))
+      btn.on('pointerdown', () => this.gameScene.devChangeSkin(sk.tex))
+      this._devSkinContainer.add(btn)
+    })
+  }
+
   applyPurchase(id) {
     const gs = this.gameScene
     switch (id) {
@@ -196,6 +254,8 @@ export default class InGameShopScene extends Phaser.Scene {
       evolutions.push('ev_thunder_storm')
     if (!gs.evolved.plasma_cannon && gs.weapons.orb.level >= 5 && gs.weapons.missile.level >= 3)
       evolutions.push('ev_plasma_cannon')
+    if (!gs.evolved.storm_blade && gs.weapons.dagger.level >= 5 && gs.weapons.ice_lance.level >= 3)
+      evolutions.push('ev_storm_blade')
 
     this.scene.stop()
 

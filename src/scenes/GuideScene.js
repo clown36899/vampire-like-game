@@ -15,6 +15,13 @@ const EVOLUTIONS = [
       { emoji: '🚀', name: '마크로스 미사일', level: 'Lv 3' },
     ]
   },
+  {
+    result:  { emoji: '🌪️', name: '폭풍 블레이드', desc: '8방향 고속 단검 연사 +\n빠른 관통 빙창 발사' },
+    recipe:  [
+      { emoji: '🗡️', name: '단검', level: 'Lv 5' },
+      { emoji: '🧊', name: '빙창', level: 'Lv 3' },
+    ]
+  },
 ]
 
 const WEAPONS = [
@@ -23,6 +30,8 @@ const WEAPONS = [
   { emoji: '🧄', name: '마늘 오라',       desc: '주위 적에게 범위 지속 피해. 레벨 업시 범위·피해 증가' },
   { emoji: '🚀', name: '마크로스 미사일', desc: '전방향 발사 후 가장 가까운 적에게 자동 유도' },
   { emoji: '🧲', name: '아이템 자석',     desc: '경험치 젬을 자동 흡입. 레벨 업시 흡입 범위 증가' },
+  { emoji: '🗡️', name: '단검',           desc: '빠른 연사로 가장 가까운 적에게 단검 투척. 레벨 업시 연사 수 증가' },
+  { emoji: '🧊', name: '빙창',           desc: '4방향으로 관통하는 얼음 창 발사. 다수의 적을 동시에 관통 피격' },
 ]
 
 const WEATHERS = [
@@ -36,6 +45,14 @@ const CARDS = [
   { emoji: '💨', name: '스피드 카드',  desc: '게임 시작시 이동속도 +20%' },
   { emoji: '💪', name: '체력 카드',    desc: '게임 시작시 최대 HP +50' },
   { emoji: '🎰', name: '럭키 스타트', desc: '게임 시작시 랜덤 무기 Lv1 획득' },
+]
+
+const CHARS = [
+  { emoji: '😐', name: '기본',   desc: '특수 능력 없음' },
+  { emoji: '⚔️',  name: '전사',   desc: 'HP +100 / 데미지 +20% / 속도 -10%' },
+  { emoji: '🧙',  name: '마법사', desc: '구슬 Lv1 시작 / 데미지 +30% / HP -50' },
+  { emoji: '🗡️',  name: '도적',   desc: '단검 Lv1 시작 / 속도 +25% / HP -30' },
+  { emoji: '✝️',  name: '성직자', desc: '마늘 Lv1 시작 / 레벨업시 HP+20 / 데미지 -10%' },
 ]
 
 export default class GuideScene extends Phaser.Scene {
@@ -186,6 +203,32 @@ export default class GuideScene extends Phaser.Scene {
     })
 
     curY += 52 * s
+    addToScroll(this.add.rectangle(W / 2, curY, W - 40 * s, 1, 0x333355).setOrigin(0.5, 0))
+    curY += 10 * s
+
+    // ── 캐릭터 ──────────────────────────────────────
+    addToScroll(this.add.text(22 * s, curY, '🎭  캐릭터 (상점에서 선택)', {
+      fontSize: `${14 * s}px`, color: '#ffcc88', fontStyle: 'bold'
+    }))
+    curY += 20 * s
+
+    const charColW = (W - 44 * s) / 2 - 6 * s
+    CHARS.forEach((ch, i) => {
+      const col = i % 2
+      const row = Math.floor(i / 2)
+      const x = 22 * s + col * (charColW + 12 * s)
+      const y = curY + row * 44 * s
+
+      addToScroll(this.add.rectangle(x + charColW / 2, y + 18 * s, charColW, 38 * s, 0x111100)
+        .setStrokeStyle(1 * s, 0x554422))
+      addToScroll(this.add.text(x + 6 * s, y + 4 * s, `${ch.emoji}  ${ch.name}`, {
+        fontSize: `${12 * s}px`, color: '#ffcc88', fontStyle: 'bold'
+      }))
+      addToScroll(this.add.text(x + 6 * s, y + 22 * s, ch.desc, {
+        fontSize: `${9 * s}px`, color: '#886644', wordWrap: { width: charColW - 10 * s }
+      }))
+    })
+    curY += Math.ceil(CHARS.length / 2) * 44 * s + 10 * s
     addToScroll(this.add.rectangle(W / 2, curY, W - 40 * s, 1, 0x333355).setOrigin(0.5, 0))
     curY += 10 * s
 

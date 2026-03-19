@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import SoundManager from '../SoundManager.js'
-import { Store, SKINS } from '../Store.js'
+import { Store, SKINS, CHARACTERS } from '../Store.js'
 
 const WORLD = 4000
 const MAGNET_RADIUS = 180
@@ -30,13 +30,16 @@ export default class GameScene extends Phaser.Scene {
     this.orbAngle     = 0
     this.garlicDmgTimer  = 0
     this.missileTimer    = 0
+    this.daggerTimer     = 0
+    this.iceLanceTimer   = 0
     this.devWaveBonus    = 0
     // 콤보
     this.combo        = 0
     this.comboDecay   = 0
     this.comboDmgMult = 1.0
     // 이세계
-    this.isekaiMode   = false
+    this.isekaiMode      = false
+    this.isekaiActivating = false
     // 트럭
     this.truckTimer   = 0
     this.truckInterval = Phaser.Math.Between(90000, 140000)
@@ -53,7 +56,7 @@ export default class GameScene extends Phaser.Scene {
     this.weatherEnemyMod = 1.0
     this.weatherParticleTimer = null
     // 무기 진화
-    this.evolved = { thunder_storm: false, plasma_cannon: false }
+    this.evolved = { thunder_storm: false, plasma_cannon: false, storm_blade: false }
     this.thunderTimer = 0
     this.plasmaAngle  = 0
     // 번개폭풍 구름
@@ -81,10 +84,11 @@ export default class GameScene extends Phaser.Scene {
     this.orbGroup    = this.physics.add.group()
     this.missiles    = this.physics.add.group()
     this.trucks      = this.physics.add.group()
+    this.iceLances   = this.physics.add.group()
 
     // 플레이어
     this.player = this.physics.add.sprite(WORLD / 2, WORLD / 2, 'player')
-    this.player.setCollideWorldBounds(true).setDepth(10)
+    this.player.setCollideWorldBounds(true).setDepth(13)
     this.player.body.setSize(28, 28)
 
     // 카메라
@@ -105,7 +109,8 @@ export default class GameScene extends Phaser.Scene {
     // 무기
     this.weapons = {
       bolt: { level: 1 }, orb: { level: 0 }, garlic: { level: 0 },
-      missile: { level: 0 }, magnet: { level: 0 }
+      missile: { level: 0 }, magnet: { level: 0 },
+      dagger: { level: 0 }, ice_lance: { level: 0 }
     }
 
     // 충돌
@@ -115,6 +120,7 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.orbGroup,    this.enemies,    this.orbHitEnemy,         null, this)
     this.physics.add.overlap(this.missiles,    this.enemies,    this.missileHitEnemy,     null, this)
     this.physics.add.overlap(this.trucks,      this.player,     this.truckHitsPlayer,    null, this)
+    this.physics.add.overlap(this.iceLances,   this.enemies,    this.iceLanceHitEnemy,   null, this)
 
     // 스폰 타이머
     this.time.delayedCall(3000, () => {
@@ -123,18 +129,29 @@ export default class GameScene extends Phaser.Scene {
       })
     })
 
-    // 스킨 적용
-    const skinId = Store.getEquippedSkin()
-    const skinTexMap = { vampire: 'skin_vampire', ghost: 'skin_ghost', gold: 'skin_gold', shadow: 'skin_shadow' }
-    if (skinTexMap[skinId]) this.player.setTexture(skinTexMap[skinId])
-
     // 카드 효과
     if (Store.ownsCard('speed_up'))    this.playerStats.speed  = Math.min(380, Math.round(this.playerStats.speed * 1.2))
     if (Store.ownsCard('hp_boost'))  { this.playerStats.maxHp += 50; this.playerStats.hp += 50 }
     if (Store.ownsCard('lucky_start')) {
-      const pick = Phaser.Utils.Array.GetRandom(['orb', 'garlic', 'missile', 'magnet'])
+      const pick = Phaser.Utils.Array.GetRandom(['orb', 'garlic', 'missile', 'magnet', 'dagger', 'ice_lance'])
       this.weapons[pick].level = 1
     }
+
+    // 캐릭터 효과 + 스킨 적용 (캐릭터 전용 스킨 우선, 상점 스킨으로 override 가능)
+    const charId   = Store.getEquippedChar()
+    const charDef  = CHARACTERS.find(c => c.id === charId)
+    this.charId    = charId
+    if (charDef?.stats) {
+      const st = charDef.stats
+      if (st.maxHpBonus) { this.playerStats.maxHp = Math.max(50, this.playerStats.maxHp + st.maxHpBonus); this.playerStats.hp = this.playerStats.maxHp }
+      if (st.damageMult) this.playerStats.damage  *= st.damageMult
+      if (st.speedMult)  this.playerStats.speed    = Math.min(380, Math.round(this.playerStats.speed * st.speedMult))
+      if (st.startWeapon && this.weapons[st.startWeapon] !== undefined) this.weapons[st.startWeapon].level = Math.max(1, this.weapons[st.startWeapon].level)
+    }
+    // 스킨: 해당 캐릭터의 장착 스킨 적용
+    const equippedSkinId = Store.getEquippedSkin(charId)
+    const skinTex = SKINS.find(s => s.id === equippedSkinId)?.tex || charDef?.skin || 'player'
+    this.player.setTexture(skinTex)
 
     // 데일리 퀘스트 초기화
     this.initDailyQuests()
@@ -431,6 +448,47 @@ export default class GameScene extends Phaser.Scene {
     this.startWeatherParticles(type)
   }
 
+  devChangeChar(id) {
+    const charDef = CHARACTERS.find(c => c.id === id)
+    if (!charDef) return
+
+    // 스탯 리셋 후 카드 → 캐릭터 순 재적용
+    this.playerStats.maxHp  = 250
+    this.playerStats.speed  = 200
+    this.playerStats.damage = 1.0
+    if (Store.ownsCard('speed_up')) this.playerStats.speed = Math.min(380, Math.round(this.playerStats.speed * 1.2))
+    if (Store.ownsCard('hp_boost')) this.playerStats.maxHp += 50
+
+    const st = charDef.stats
+    if (st.maxHpBonus) this.playerStats.maxHp = Math.max(50, this.playerStats.maxHp + st.maxHpBonus)
+    if (st.damageMult) this.playerStats.damage *= st.damageMult
+    if (st.speedMult)  this.playerStats.speed  = Math.min(380, Math.round(this.playerStats.speed * st.speedMult))
+    if (st.startWeapon && this.weapons[st.startWeapon] !== undefined)
+      this.weapons[st.startWeapon].level = Math.max(1, this.weapons[st.startWeapon].level)
+
+    this.playerStats.hp = Math.min(this.playerStats.hp, this.playerStats.maxHp)
+    this.charId = id
+
+    // 캐릭터 전용 스킨 적용 (해당 캐릭터의 장착 스킨)
+    const devSkinId = Store.getEquippedSkin(id)
+    const devSkinTex = SKINS.find(s => s.id === devSkinId)?.tex || charDef.skin || 'player'
+    this.player.setTexture(devSkinTex)
+
+    // 화면 알림
+    const W = this.scale.width
+    const s = W / 960
+    const ntxt = this.add.text(W / 2, this.scale.height * 0.38,
+      `${charDef.emoji} ${charDef.name} 적용됨`, {
+        fontSize: `${22 * s}px`, color: '#ffcc00', fontStyle: 'bold',
+        stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(200)
+    this.tweens.add({ targets: ntxt, alpha: 0, y: ntxt.y - 40, duration: 1800, delay: 300, onComplete: () => ntxt.destroy() })
+  }
+
+  devChangeSkin(texKey) {
+    this.player.setTexture(texKey)
+  }
+
   startWeatherParticles(type) {
     // 기존 파티클 정리
     if (this.weatherParticleTimer) {
@@ -559,15 +617,19 @@ export default class GameScene extends Phaser.Scene {
     truck.destroy()
     this.truckActive = false
 
-    if (this.isekaiMode) return  // 이미 이세계면 스킵
+    if (this.isekaiMode || this.isekaiActivating) return  // 이미 이세계거나 진행중이면 스킵
+    this.isekaiActivating = true
 
     // 충격
-    this.cameras.main.shake(600, 0.02)
+    this.cameras.main.shake(500, 0.018)
     const W = this.scale.width
-    const flash = this.add.rectangle(W / 2, this.scale.height / 2, W, this.scale.height, 0xffffff, 1).setScrollFactor(0).setDepth(300)
-    this.tweens.add({ targets: flash, alpha: 0, duration: 600, onComplete: () => flash.destroy() })
+    const flash = this.add.rectangle(W / 2, this.scale.height / 2, W, this.scale.height, 0xffffff, 0.85).setScrollFactor(0).setDepth(300)
+    this.tweens.add({ targets: flash, alpha: 0, duration: 400, onComplete: () => flash.destroy() })
 
-    this.time.delayedCall(400, () => this.activateIsekai())
+    this.time.delayedCall(400, () => {
+      this.isekaiActivating = false
+      if (!this.isGameOver) this.activateIsekai()
+    })
   }
 
   activateIsekai() {
@@ -812,8 +874,8 @@ export default class GameScene extends Phaser.Scene {
     this.orbSprites.forEach(orb => {
       if (!orb.active) return
       const angle = Phaser.Math.Angle.Between(orb.x, orb.y, this.player.x + Math.random() * 200 - 100, this.player.y + Math.random() * 200 - 100)
-      const m = this.missiles.create(orb.x, orb.y, 'missile')
-      m.setDepth(8).setRotation(angle).setTint(0xff88ff)
+      const m = this.missiles.create(orb.x, orb.y, 'plasma_bolt')
+      m.setDepth(8).setRotation(angle)
       m.damage = 35 * this.playerStats.damage
       m.currentAngle = angle
       m.mspeed = 300
@@ -888,8 +950,8 @@ export default class GameScene extends Phaser.Scene {
       this.orbAngle += 0.028 + this.weapons.orb.level * 0.006 + (this.evolved.plasma_cannon ? 0.01 : 0)
 
       while (this.orbSprites.length < orbCount) {
-        const o = this.physics.add.sprite(0, 0, this.evolved.plasma_cannon ? 'missile' : 'orb')
-        o.setDepth(9).setTint(this.evolved.plasma_cannon ? 0xff88ff : 0xffffff)
+        const o = this.physics.add.sprite(0, 0, this.evolved.plasma_cannon ? 'plasma_orb' : 'orb')
+        o.setDepth(9)
         o.hitCooldowns = new Map()
         this.orbSprites.push(o)
         this.orbGroup.add(o)
@@ -933,6 +995,30 @@ export default class GameScene extends Phaser.Scene {
           this.tweens.add({ targets: smoke, alpha: 0, scaleX: 2.5, scaleY: 2.5, duration: 380, onComplete: () => smoke.destroy() })
         }
       })
+    }
+
+    // 단검 (진화시 폭풍 블레이드: 8방향 광역)
+    if (this.weapons.dagger.level > 0) {
+      this.daggerTimer += delta
+      const rate = this.evolved.storm_blade
+        ? Math.max(80, 320 - (this.weapons.dagger.level - 1) * 40)
+        : Math.max(120, 500 - (this.weapons.dagger.level - 1) * 70)
+      if (this.daggerTimer >= rate) {
+        this.daggerTimer = 0
+        this.evolved.storm_blade ? this.fireStormBlade() : this.fireDagger()
+      }
+    }
+
+    // 빙창 (진화시 더 빠른 발사 + 2배 탄수)
+    if (this.weapons.ice_lance.level > 0) {
+      this.iceLanceTimer += delta
+      const rate = this.evolved.storm_blade
+        ? Math.max(800, 2000 - (this.weapons.ice_lance.level - 1) * 200)
+        : Math.max(1200, 3000 - (this.weapons.ice_lance.level - 1) * 300)
+      if (this.iceLanceTimer >= rate) {
+        this.iceLanceTimer = 0
+        this.fireIceLance()
+      }
     }
 
     // 마늘
@@ -987,6 +1073,64 @@ export default class GameScene extends Phaser.Scene {
       this.time.delayedCall(3000, () => { if (m?.active) m.destroy() })
     }
     this.sfx.shoot()
+  }
+
+  fireDagger() {
+    const nearest = this.getNearestEnemy()
+    if (!nearest) return
+    const count = 1 + Math.floor((this.weapons.dagger.level - 1) / 2)
+    const base  = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y)
+    for (let i = 0; i < count; i++) {
+      const spread = count === 1 ? 0 : (i - (count - 1) / 2) * 0.28
+      const angle  = base + spread
+      const d = this.projectiles.create(this.player.x, this.player.y, 'dagger')
+      d.setDepth(8).setRotation(angle).setTint(0xccddff)
+      d.damage = 8 * this.weapons.dagger.level * this.playerStats.damage
+      d.setVelocity(Math.cos(angle) * 680, Math.sin(angle) * 680)
+      this.time.delayedCall(700, () => { if (d?.active) d.destroy() })
+    }
+    this.sfx.shoot()
+  }
+
+  fireStormBlade() {
+    // 8방향 발사
+    const dirs = this.evolved.storm_blade ? 8 : 4
+    for (let i = 0; i < dirs; i++) {
+      const angle = (Math.PI * 2 * i / dirs)
+      const d = this.projectiles.create(this.player.x, this.player.y, 'dagger')
+      d.setDepth(8).setRotation(angle).setTint(0xaaffcc)
+      d.damage = 12 * this.weapons.dagger.level * this.playerStats.damage
+      d.setVelocity(Math.cos(angle) * 580, Math.sin(angle) * 580)
+      this.time.delayedCall(900, () => { if (d?.active) d.destroy() })
+    }
+    this.sfx.shoot()
+  }
+
+  fireIceLance() {
+    const dirs = this.evolved.storm_blade ? 8 : 4
+    for (let i = 0; i < dirs; i++) {
+      const angle = (Math.PI * 2 * i / dirs)
+      const il = this.iceLances.create(this.player.x, this.player.y, 'ice_lance')
+      il.setDepth(8).setRotation(angle).setTint(0x88ddff)
+      il.setScale(1 + this.weapons.ice_lance.level * 0.15)
+      il.damage = 25 * this.weapons.ice_lance.level * this.playerStats.damage
+      il.hitCooldowns = new Map()
+      il.setVelocity(Math.cos(angle) * 300, Math.sin(angle) * 300)
+      this.time.delayedCall(1800, () => { if (il?.active) il.destroy() })
+    }
+    this.sfx.shoot()
+  }
+
+  iceLanceHitEnemy(lance, enemy) {
+    if (!lance.active || !enemy.active) return
+    if (!lance.hitCooldowns) lance.hitCooldowns = new Map()
+    const now = this.time.now
+    if (now - (lance.hitCooldowns.get(enemy) || 0) < 500) return
+    lance.hitCooldowns.set(enemy, now)
+    this.damageEnemy(enemy, lance.damage || 25)
+    // 빙결 시각 효과
+    const frost = this.add.circle(enemy.x, enemy.y, 12, 0x88eeff, 0.4).setDepth(16)
+    this.tweens.add({ targets: frost, scaleX: 2, scaleY: 2, alpha: 0, duration: 300, onComplete: () => frost.destroy() })
   }
 
   missileHitEnemy(missile, enemy) {
@@ -1216,6 +1360,10 @@ export default class GameScene extends Phaser.Scene {
     this.levelUpFlash.setAlpha(1)
     this.tweens.add({ targets: this.levelUpFlash, alpha: 0, duration: 1200, delay: 400 })
     this.sfx.levelUp()
+    // 성직자: 레벨업시 HP 회복
+    if (this.charId === 'priest') {
+      this.playerStats.hp = Math.min(this.playerStats.maxHp, this.playerStats.hp + 20)
+    }
     this.paused = true
     this.physics.pause()
     this.scene.launch('LevelUp', { gameScene: this })
@@ -1230,6 +1378,9 @@ export default class GameScene extends Phaser.Scene {
     } else if (key === 'ev_plasma_cannon') {
       this.evolved.plasma_cannon = true
       this.showEvolutionAnnounce('🌀 플라즈마 포 진화!')
+    } else if (key === 'ev_storm_blade') {
+      this.evolved.storm_blade = true
+      this.showEvolutionAnnounce('🌪️ 폭풍 블레이드 진화!')
     } else {
       this.weapons[key].level++
     }
@@ -1272,9 +1423,14 @@ export default class GameScene extends Phaser.Scene {
     else if (this.weapons.bolt.level > 0) wSlot.push(`🗡 볼트 Lv${this.weapons.bolt.level}`)
     if (this.evolved.plasma_cannon) wSlot.push('🌀 플라즈마포')
     else if (this.weapons.orb.level > 0) wSlot.push(`🔮 구슬 Lv${this.weapons.orb.level}`)
-    if (this.weapons.garlic.level  > 0) wSlot.push(`🧄 마늘 Lv${this.weapons.garlic.level}`)
-    if (this.weapons.missile.level > 0) wSlot.push(`🚀 미사일 Lv${this.weapons.missile.level}`)
-    if (this.weapons.magnet.level  > 0) wSlot.push(`🧲 자석 Lv${this.weapons.magnet.level}`)
+    if (this.weapons.garlic.level    > 0) wSlot.push(`🧄 마늘 Lv${this.weapons.garlic.level}`)
+    if (this.weapons.missile.level   > 0) wSlot.push(`🚀 미사일 Lv${this.weapons.missile.level}`)
+    if (this.weapons.magnet.level    > 0) wSlot.push(`🧲 자석 Lv${this.weapons.magnet.level}`)
+    if (this.evolved.storm_blade) wSlot.push('🌪️ 폭풍블레이드')
+    else {
+      if (this.weapons.dagger.level    > 0) wSlot.push(`🗡️ 단검 Lv${this.weapons.dagger.level}`)
+      if (this.weapons.ice_lance.level > 0) wSlot.push(`🧊 빙창 Lv${this.weapons.ice_lance.level}`)
+    }
     this.weaponSlotText.setText(wSlot.join('   '))
   }
 

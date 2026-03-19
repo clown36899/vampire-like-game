@@ -5,8 +5,10 @@ const WEAPON_INFO = {
   orb:     { name: '마법 구슬',       emoji: '🔮', desc: '플레이어 주위를\n회전하며 충돌 타격',   color: 0xaa44ff },
   garlic:  { name: '마늘 오라',       emoji: '🧄', desc: '주변 범위에\n지속 데미지 필드',         color: 0x88ff44 },
   missile: { name: '마크로스 미사일', emoji: '🚀', desc: '전방향 난수 발사 후\n적에게 자동 유도', color: 0xff6600 },
-  magnet:  { name: '아이템 자석',     emoji: '🧲', desc: '젬 흡수 범위와\n속도가 크게 증가',      color: 0x00ccff },
-  hp:      { name: '체력 회복',       emoji: '❤️', desc: 'HP 40 즉시 회복',                       color: 0xff4444 },
+  magnet:    { name: '아이템 자석',   emoji: '🧲', desc: '젬 흡수 범위와\n속도가 크게 증가',          color: 0x00ccff },
+  dagger:    { name: '단검',         emoji: '🗡️', desc: '빠른 연사로 가장 가까운\n적에게 단검 투척',   color: 0xccddff },
+  ice_lance: { name: '빙창',         emoji: '🧊', desc: '4방향으로 관통하는\n얼음 창을 발사',          color: 0x44aaff },
+  hp:        { name: '체력 회복',     emoji: '❤️', desc: 'HP 40 즉시 회복',                           color: 0xff4444 },
 
   // ── 진화 카드 ──
   ev_thunder_storm: {
@@ -18,6 +20,11 @@ const WEAPON_INFO = {
     name: '플라즈마포 진화!', emoji: '🌀',
     desc: '구슬 Lv5 + 미사일 Lv3\n구슬 위치에서 플라즈마\n미사일을 자동 발사!',
     color: 0xff44ff, evolved: true
+  },
+  ev_storm_blade: {
+    name: '폭풍 블레이드 진화!', emoji: '🌪️',
+    desc: '단검 Lv5 + 빙창 Lv3\n8방향 고속 단검 + 빠른 빙창\n연사로 폭풍 같은 공격!',
+    color: 0x88ffcc, evolved: true
   },
 }
 
@@ -90,8 +97,10 @@ export default class LevelUpScene extends Phaser.Scene {
       evCards.push('ev_thunder_storm')
     if (!evolved.plasma_cannon && weapons.orb?.level >= 5 && weapons.missile?.level >= 3)
       evCards.push('ev_plasma_cannon')
+    if (!evolved.storm_blade && weapons.dagger?.level >= 5 && weapons.ice_lance?.level >= 3)
+      evCards.push('ev_storm_blade')
 
-    const pool      = ['bolt', 'orb', 'garlic', 'missile', 'magnet', 'hp']
+    const pool      = ['bolt', 'orb', 'garlic', 'missile', 'magnet', 'dagger', 'ice_lance', 'hp']
     const available = pool.filter(k => k === 'hp' || (weapons[k] && weapons[k].level < 5))
     Phaser.Utils.Array.Shuffle(available)
 
